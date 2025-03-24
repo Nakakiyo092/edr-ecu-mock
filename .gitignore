@@ -1,0 +1,3 @@
+mock/__pycache__/*
+venv/*
+.vscode/*
