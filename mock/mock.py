@@ -37,15 +37,17 @@ isotp_params = {
 
 notifier = can.Notifier(bus, [can.Printer()])                                       # Add a debug listener that print all messages
 rx_addr = isotp.Address(isotp.AddressingMode.NormalFixed_29bits, target_address=0xF1, source_address=0xFF)
-tx_addr = isotp.Address(isotp.AddressingMode.NormalFixed_29bits, target_address=0xF1, source_address=0xFF)
+tx_addr = isotp.Address(isotp.AddressingMode.NormalFixed_29bits, target_address=0xF1, source_address=0x77)
 rx_stack = isotp.NotifierBasedCanStack(bus=bus, notifier=notifier, address=rx_addr, params=isotp_params)  # Network/Transport layer (IsoTP protocol). Register a new listenenr
 tx_stack = isotp.NotifierBasedCanStack(bus=bus, notifier=notifier, address=tx_addr, params=isotp_params)  # Network/Transport layer (IsoTP protocol). Register a new listenenr
 
+data_record = b''.join(bytes([i % 256]) for i in range(772))
+
+request = ReadDataByIdentifier.make_request(didlist=[0xFA13], didconfig={'default':'s'})
+response = Response(service=ReadDataByIdentifier, code=Response.Code.PositiveResponse, data=bytes([0xFA, 0x13])+data_record)
+
 rx_stack.start()
 tx_stack.start()
-
-request = ReadDataByIdentifier.make_request(didlist=[0xFA13], didconfig={'default':'>H'})
-response = Response(service=ReadDataByIdentifier, code=Response.Code.PositiveResponse, data=b'\x01')
 
 try:
     while True:
