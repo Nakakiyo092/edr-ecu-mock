@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import time
 import can
 import isotp
 from udsoncan import Request, Response
@@ -45,6 +46,7 @@ data_record = b''.join(bytes([i % 256]) for i in range(772))
 
 request = ReadDataByIdentifier.make_request(didlist=[0xFA13], didconfig={'default':'s'})
 response = Response(service=ReadDataByIdentifier, code=Response.Code.PositiveResponse, data=bytes([0xFA, 0x13])+data_record)
+pend_response = Response(service=ReadDataByIdentifier, code=Response.Code.RequestCorrectlyReceived_ResponsePending)
 
 rx_stack.start()
 tx_stack.start()
@@ -55,6 +57,12 @@ try:
         if payload is not None:
             if payload == request.get_payload():
                 print("Request received!")
+
+                if True:
+                    payload = pend_response.get_payload()
+                    tx_stack.send(payload)
+                    time.sleep(3)
+
                 payload = response.get_payload()
                 tx_stack.send(payload)
 
