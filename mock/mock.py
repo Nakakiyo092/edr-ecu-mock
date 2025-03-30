@@ -37,15 +37,25 @@ isotp_params = {
 }
 
 notifier = can.Notifier(bus, [can.Printer()])                                       # Add a debug listener that print all messages
-rx_addr = isotp.Address(isotp.AddressingMode.NormalFixed_29bits, target_address=0xF1, source_address=0xFF)
-tx_addr = isotp.Address(isotp.AddressingMode.NormalFixed_29bits, target_address=0xF1, source_address=0x77)
+rx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x700, rxid=0x7DF)
+tx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x709, rxid=0x701)
+#rx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7F1, rxid=0x7F5)
+#tx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7F1, rxid=0x7F5)
+#rx_addr = isotp.Address(isotp.AddressingMode.NormalFixed_29bits, target_address=0xF1, source_address=0xFF)
+#tx_addr = isotp.Address(isotp.AddressingMode.NormalFixed_29bits, target_address=0xF1, source_address=0x77)
 rx_stack = isotp.NotifierBasedCanStack(bus=bus, notifier=notifier, address=rx_addr, params=isotp_params)  # Network/Transport layer (IsoTP protocol). Register a new listenenr
 tx_stack = isotp.NotifierBasedCanStack(bus=bus, notifier=notifier, address=tx_addr, params=isotp_params)  # Network/Transport layer (IsoTP protocol). Register a new listenenr
 
-data_record = b''.join(bytes([i % 256]) for i in range(772))
+data_records = {}
+for i in range(0xFA13, 0xFA16):
+    #data_records[i] = b''.join(bytes([j % 256]) for j in range(772))
+    data_records[i] = bytearray([i - 0xFA12] * 772)
 
-request = ReadDataByIdentifier.make_request(didlist=[0xFA13], didconfig={'default':'s'})
-response = Response(service=ReadDataByIdentifier, code=Response.Code.PositiveResponse, data=bytes([0xFA, 0x13])+data_record)
+requests = {}
+responses = {}
+for i in range(0xFA13, 0xFA16):
+    requests[i] = ReadDataByIdentifier.make_request(didlist=[i], didconfig={'default':'s'})
+    responses[i] = Response(service=ReadDataByIdentifier, code=Response.Code.PositiveResponse, data=bytes([(i>>8)&0xFF,i&0xFF])+data_records[i])
 pend_response = Response(service=ReadDataByIdentifier, code=Response.Code.RequestCorrectlyReceived_ResponsePending)
 
 rx_stack.start()
@@ -53,18 +63,16 @@ tx_stack.start()
 
 try:
     while True:
-        payload = rx_stack.recv(block=True, timeout=1)
-        if payload is not None:
-            if payload == request.get_payload():
-                print("Request received!")
+        payload = rx_stack.recv(block=True, timeout=0.01)
+        for i in range(0xFA13, 0xFA16):
+            if payload is not None:
+                if payload == requests[i].get_payload():
+                    if False:
+                        payload = pend_response.get_payload()
+                        tx_stack.send(payload)
+                        time.sleep(3)
 
-                if True:
-                    payload = pend_response.get_payload()
-                    tx_stack.send(payload)
-                    time.sleep(3)
-
-                payload = response.get_payload()
-                tx_stack.send(payload)
+                    tx_stack.send(responses[i].get_payload())
 
 except Exception as err:
     print(err)
