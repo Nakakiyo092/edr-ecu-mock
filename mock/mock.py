@@ -37,12 +37,12 @@ isotp_params = {
 }
 
 notifier = can.Notifier(bus, [can.Printer()])                                       # Add a debug listener that print all messages
-rx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x700, rxid=0x7DF)
-tx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x709, rxid=0x701)
+#rx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x700, rxid=0x7DF)
+#tx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x709, rxid=0x701)
 #rx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7F1, rxid=0x7F5)
 #tx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7F1, rxid=0x7F5)
-#rx_addr = isotp.Address(isotp.AddressingMode.NormalFixed_29bits, target_address=0xF1, source_address=0xFF)
-#tx_addr = isotp.Address(isotp.AddressingMode.NormalFixed_29bits, target_address=0xF1, source_address=0x77)
+rx_addr = isotp.Address(isotp.AddressingMode.NormalFixed_29bits, target_address=0xF1, source_address=0xFF)
+tx_addr = isotp.Address(isotp.AddressingMode.NormalFixed_29bits, target_address=0xF1, source_address=0x77)
 rx_stack = isotp.NotifierBasedCanStack(bus=bus, notifier=notifier, address=rx_addr, params=isotp_params)  # Network/Transport layer (IsoTP protocol). Register a new listenenr
 tx_stack = isotp.NotifierBasedCanStack(bus=bus, notifier=notifier, address=tx_addr, params=isotp_params)  # Network/Transport layer (IsoTP protocol). Register a new listenenr
 
@@ -57,6 +57,7 @@ for i in range(0xFA13, 0xFA16):
     requests[i] = ReadDataByIdentifier.make_request(didlist=[i], didconfig={'default':'s'})
     responses[i] = Response(service=ReadDataByIdentifier, code=Response.Code.PositiveResponse, data=bytes([(i>>8)&0xFF,i&0xFF])+data_records[i])
 pend_response = Response(service=ReadDataByIdentifier, code=Response.Code.RequestCorrectlyReceived_ResponsePending)
+nega_response = Response(service=ReadDataByIdentifier, code=Response.Code.RequestOutOfRange)
 
 rx_stack.start()
 tx_stack.start()
@@ -67,12 +68,15 @@ try:
         for i in range(0xFA13, 0xFA16):
             if payload is not None:
                 if payload == requests[i].get_payload():
-                    if False:
-                        payload = pend_response.get_payload()
-                        tx_stack.send(payload)
+                    if False:   # Pending
+                        tx_stack.send(pend_response.get_payload())
                         time.sleep(3)
 
-                    tx_stack.send(responses[i].get_payload())
+                    if True:   # Nega
+                        tx_stack.send(nega_response.get_payload())
+
+                    else:
+                        tx_stack.send(responses[i].get_payload())
 
 except Exception as err:
     print(err)
