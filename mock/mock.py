@@ -38,22 +38,22 @@ isotp_params = {
 
 notifier = can.Notifier(bus, [can.Printer()])                                       # Add a debug listener that print all messages
 #rx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x700, rxid=0x7DF)
-#tx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x709, rxid=0x701)
-#rx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7F1, rxid=0x7F5)
-#tx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7F1, rxid=0x7F5)
+#tx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7FF, rxid=0x7F7)
+#rx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7F9, rxid=0x7F1)
+#tx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7F9, rxid=0x7F1)
 rx_addr = isotp.Address(isotp.AddressingMode.NormalFixed_29bits, target_address=0xF1, source_address=0xFF)
 tx_addr = isotp.Address(isotp.AddressingMode.NormalFixed_29bits, target_address=0xF1, source_address=0x77)
 rx_stack = isotp.NotifierBasedCanStack(bus=bus, notifier=notifier, address=rx_addr, params=isotp_params)  # Network/Transport layer (IsoTP protocol). Register a new listenenr
 tx_stack = isotp.NotifierBasedCanStack(bus=bus, notifier=notifier, address=tx_addr, params=isotp_params)  # Network/Transport layer (IsoTP protocol). Register a new listenenr
 
 data_records = {}
-for i in range(0xFA13, 0xFA16):
-    #data_records[i] = b''.join(bytes([j % 256]) for j in range(772))
-    data_records[i] = bytearray([i - 0xFA12] * 772)
+for i in range(0xfa13, 0xfa16):
+    data_records[i] = b''.join(bytes([j % 256]) for j in range(772))
+    #data_records[i] = bytearray([i - 0xfa12] * 772)
 
 requests = {}
 responses = {}
-for i in range(0xFA13, 0xFA16):
+for i in range(0xfa13, 0xfa16):
     requests[i] = ReadDataByIdentifier.make_request(didlist=[i], didconfig={'default':'s'})
     responses[i] = Response(service=ReadDataByIdentifier, code=Response.Code.PositiveResponse, data=bytes([(i>>8)&0xFF,i&0xFF])+data_records[i])
 pend_response = Response(service=ReadDataByIdentifier, code=Response.Code.RequestCorrectlyReceived_ResponsePending)
@@ -65,14 +65,14 @@ tx_stack.start()
 try:
     while True:
         payload = rx_stack.recv(block=True, timeout=0.01)
-        for i in range(0xFA13, 0xFA16):
+        for i in range(0xfa13, 0xfa16):
             if payload is not None:
                 if payload == requests[i].get_payload():
                     if False:   # Pending
                         tx_stack.send(pend_response.get_payload())
                         time.sleep(3)
 
-                    if True:   # Nega
+                    if False:   # Nega
                         tx_stack.send(nega_response.get_payload())
 
                     else:
