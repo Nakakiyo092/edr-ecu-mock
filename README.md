@@ -2,7 +2,7 @@
 Python test scripts to simulate an ECU with EDR data.
 
 ## Requirements
-- Python 3
+- Python 3.13
 - See requirements.txt
 
 ## Usage
