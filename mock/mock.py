@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
 import time
 import can
 import isotp
@@ -16,11 +15,13 @@ def main():
         # bus = can.Bus(interface='vector', channel=0, bitrate=500000, app_name="Python-CAN")
         # bus = can.Bus('test', interface='virtual')
     except PermissionError as err:
-        print(f"Permission denied to access CAN interface: {err}")
-        sys.exit(1)
+        print("Could not access CAN nework.")
+        print("The program is aborting.")
+        print(err)
+        return
     except Exception as err:
         print(err)
-        sys.exit(1)
+        return
 
     # Isotp parameters
     isotp_params = {
