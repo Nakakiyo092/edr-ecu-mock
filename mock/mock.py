@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import time
 import can
 import isotp
@@ -8,16 +9,23 @@ from udsoncan.services import ReadDataByIdentifier
 
 
 def main():
+    # Parse arguments
+    parser = argparse.ArgumentParser(description='EDR ECU mock')
+    parser.add_argument('devicename', help='CAN interface device name (e.g., /dev/ttyACM0, COM9)')
+    args = parser.parse_args()
+
     # Start CAN bus
     try:
         # bus = can.Bus(interface='slcan', channel='/dev/ttyACM0', bitrate=500000)
-        bus = can.Bus(interface='slcan', channel='COM9', bitrate=500000)
+        bus = can.Bus(interface='slcan', channel=args.devicename, bitrate=500000)
         # bus = can.Bus(interface='vector', channel=0, bitrate=500000, app_name="Python-CAN")
         # bus = can.Bus('test', interface='virtual')
     except PermissionError as err:
         print("Could not access CAN nework.")
         print("The program is aborting.")
         print(err)
+        if args.devicename not in ("virtual", "vector"):
+            print(f"On Linux, try: sudo chmod 666 {args.devicename}")
         return
     except Exception as err:
         print(err)
