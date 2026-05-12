@@ -7,9 +7,10 @@ Python test scripts to simulate an ECU with EDR data.
 
 ## Usage
 The CAN interface will work as an UDS server.
+The script will tell you the usage by the command below:
 
 Windows
-* `python .\mock\mock.py`
+* `python .\src\mock.py --help`
 
-Linux
-* `./mock/main.sh`
+Linux or macOS
+* `python3 src/mock.py --help`
