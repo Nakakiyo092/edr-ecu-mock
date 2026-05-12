@@ -8,26 +8,56 @@ from udsoncan import Request, Response
 from udsoncan.services import ReadDataByIdentifier
 
 
-def main():
-    # Parse arguments
-    parser = argparse.ArgumentParser(description='EDR ECU mock')
-    parser.add_argument('devicename', help='CAN interface device name (e.g., /dev/ttyACM0, COM9)')
-    args = parser.parse_args()
+def get_argparser():
+    """Get the command line argument parser."""
 
-    # Start CAN bus
+    parser = argparse.ArgumentParser(
+        description="Simulate an ECU with EDR data. Press [CTRL] + 'c' to quit."
+    )
+    parser.add_argument(
+        "devicename",
+        type=str,
+        help="device name like COM9 or /dev/ttyACM0 (required)"
+    )
+    parser.add_argument(
+        "-v", "--verbose",    # TODO
+        action="store_true",
+        help="enable verbose output"
+    )
+    return parser
+
+
+def main():
+    """Main process."""
+
+    # Parse command line arguments
+    argparser = get_argparser()
+    args = argparser.parse_args()
+
+    # Setup and start a CAN bus
     try:
-        # bus = can.Bus(interface='slcan', channel='/dev/ttyACM0', bitrate=500000)
-        bus = can.Bus(interface='slcan', channel=args.devicename, bitrate=500000)
-        # bus = can.Bus(interface='vector', channel=0, bitrate=500000, app_name="Python-CAN")
-        # bus = can.Bus('test', interface='virtual')
-    except PermissionError as err:
-        print("Could not access CAN nework.")
+        if args.devicename == "virtual":
+            bus = can.Bus('test', interface='virtual')
+        elif args.devicename == "vector":
+            bus = can.Bus(interface='vector', channel=0, bitrate=500000, app_name="Python-CAN")
+        else:
+            bus = can.Bus(interface='slcan', channel=args.devicename, bitrate=500000)
+    except can.CanInitializationError as err:
+        print("Could not access CAN network.")
         print("The program is aborting.")
         print(err)
         if args.devicename not in ("virtual", "vector"):
-            print(f"On Linux, try: sudo chmod 666 {args.devicename}")
+            print("Possible causes:")
+            print(f"  - Wrong device name: check '{args.devicename}' is correct")
+            print( "  - Device not powered: check the device is powered on")
+            print( "  - Device not connected: check the device is properly connected")
+            print( "  - Wrong firmware: check the device has correct firmware")
+            print(f"  - Permission denied (Linux): try 'sudo usermod -aG dialout $USER' and re-login'")
+            print( "    or 'sudo chmod 666 {args.devicename}")
         return
     except Exception as err:
+        print("Could not access CAN network.")
+        print("The program is aborting.")
         print(err)
         return
 
