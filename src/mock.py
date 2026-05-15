@@ -109,8 +109,11 @@ def main():
         'listen_mode': False,
     }
 
-    # Add a debug listener that prints all messages
-    notifier = can.Notifier(bus, [can.Printer()])
+    if args.verbose:
+        # Setup a debug listener that print all messages
+        notifier = can.Notifier(bus, [can.Printer()])
+    else:
+        notifier = can.Notifier(bus, [])
 
     # rx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x700, rxid=0x7DF)
     # tx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7FF, rxid=0x7F7)
