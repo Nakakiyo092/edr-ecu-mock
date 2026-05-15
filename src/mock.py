@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 
+"""
+A Python script to simulate an ECU with EDR data.
+
+License:
+    MIT License.
+    See the accompanying LICENSE file for full terms.
+"""
+
 import argparse
 import time
 import can
