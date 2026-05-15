@@ -115,10 +115,11 @@ def main():
     else:
         notifier = can.Notifier(bus, [])
 
-    # rx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x700, rxid=0x7DF)
-    # tx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7FF, rxid=0x7F7)
-    # rx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7F9, rxid=0x7F1)
-    # tx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7F9, rxid=0x7F1)
+    # TODO: ID type (11bits func. / 11bits phys. / 29bits)
+    # rx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x700, rxid=0x7DF)    # func
+    # tx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7FF, rxid=0x7F7)    # func
+    # rx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7F9, rxid=0x7F1)    # phys
+    # tx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7F9, rxid=0x7F1)    # phys
     rx_addr = isotp.Address(isotp.AddressingMode.NormalFixed_29bits, target_address=0xF1, source_address=0xFF)
     tx_addr = isotp.Address(isotp.AddressingMode.NormalFixed_29bits, target_address=0xF1, source_address=0x77)
 
@@ -128,6 +129,7 @@ def main():
 
     data_records = {}
     for i in range(0xfa13, 0xfa16):
+        # TODO: data record for DID (zeros / step / random?)
         data_records[i] = b''.join(bytes([j % 256]) for j in range(772))
         # data_records[i] = bytearray([i - 0xfa12] * 772)
 
@@ -148,10 +150,12 @@ def main():
             for i in range(0xfa13, 0xfa16):
                 if payload is not None:
                     if payload == requests[i].get_payload():
+                        # TODO: pending (on / off)
                         if False:   # Pending
                             tx_stack.send(pend_response.get_payload())
                             time.sleep(3)
 
+                        # TODO: negative response (on / off)
                         if False:   # Nega
                             tx_stack.send(nega_response.get_payload())
 
