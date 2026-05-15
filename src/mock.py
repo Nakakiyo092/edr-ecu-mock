@@ -9,11 +9,15 @@ License:
 """
 
 import argparse
+import random
+import threading
 import time
 import can
 import isotp
 from udsoncan import Request, Response
 from udsoncan.services import ReadDataByIdentifier
+
+_BG_FRAMES_RNG_SEED = 42
 
 
 def get_argparser():
@@ -32,7 +36,57 @@ def get_argparser():
         action="store_true",
         help="enable verbose output"
     )
+    parser.add_argument(
+        "-b", "--bg-frames",
+        type=int,
+        default=0,
+        metavar="N",
+        help="number of background CAN IDs to send at 100ms cycle (0-500, default 0)"
+    )
     return parser
+
+
+def generate_background_frames(count):
+    """Return a list of (arbitration_id, is_extended_id, data) for background frames.
+
+    Half of the IDs are standard 11-bit, the other half extended 29-bit.
+    IDs and data are pseudorandom with a fixed seed for reproducibility.
+    """
+    rng = random.Random(_BG_FRAMES_RNG_SEED)
+
+    n_std = count // 2
+    n_ext = count - n_std
+
+    frames = []
+    for _ in range(n_std):
+        arb_id = rng.randint(0, 0x7FF)
+        data = bytes(rng.randint(0, 255) for _ in range(8))
+        frames.append((arb_id, False, data))
+
+    for _ in range(n_ext):
+        arb_id = rng.randint(0, 0x1FFFFFFF)
+        data = bytes(rng.randint(0, 255) for _ in range(8))
+        frames.append((arb_id, True, data))
+
+    return frames
+
+
+def background_sender(bus, frames, stop_event):
+    """Send all background CAN frames, repeating every 100ms until stop_event is set."""
+    while not stop_event.is_set():
+        cycle_start = time.monotonic()
+        for arb_id, is_extended, data in frames:
+            if stop_event.is_set():
+                return
+            msg = can.Message(arbitration_id=arb_id, is_extended_id=is_extended, data=data)
+            try:
+                bus.send(msg)
+            except can.CanError:
+                pass
+        elapsed = time.monotonic() - cycle_start
+        remaining = 0.1 - elapsed
+        if remaining > 0:
+            stop_event.wait(remaining)
 
 
 def main():
@@ -41,6 +95,9 @@ def main():
     # Parse command line arguments
     argparser = get_argparser()
     args = argparser.parse_args()
+
+    if not 0 <= args.bg_frames <= 500:
+        argparser.error("--bg-frames must be between 0 and 500")
 
     # Setup and start a CAN bus
     try:
@@ -144,6 +201,16 @@ def main():
     rx_stack.start()
     tx_stack.start()
 
+    stop_event = threading.Event()
+    if args.bg_frames > 0:
+        frames = generate_background_frames(args.bg_frames)
+        bg_thread = threading.Thread(
+            target=background_sender,
+            args=(bus, frames, stop_event),
+            daemon=True,
+        )
+        bg_thread.start()
+
     try:
         while True:
             payload = rx_stack.recv(block=True, timeout=0.01)
@@ -164,6 +231,8 @@ def main():
 
     except Exception as err:
         print(err)
+
+    stop_event.set()
 
     rx_stack.stop()
     tx_stack.stop()
