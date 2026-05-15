@@ -34,24 +34,24 @@ def get_argparser():
         help="enable verbose output"
     )
     parser.add_argument(
-        "--id-type",
+        "-i", "--id-type",
         choices=["11func", "11phys", "29bits"],
         default="29bits",
         help="CAN ID type: 11bits functional (11func), 11bits physical (11phys), or 29bits (default: 29bits)"
     )
     parser.add_argument(
-        "--data",
+        "-d", "--data",
         choices=["zeros", "step", "random"],
         default="zeros",
         help="data record values: zeros, step, or random pseudorandom (default: zeros)"
     )
     parser.add_argument(
-        "--pending",
+        "-p", "--pending",
         action="store_true",
         help="enable pending response before positive/negative response"
     )
     parser.add_argument(
-        "--negative",
+        "-n", "--negative",
         action="store_true",
         help="enable negative response instead of positive response"
     )
