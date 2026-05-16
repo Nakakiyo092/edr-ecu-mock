@@ -8,10 +8,11 @@ License:
     See the accompanying LICENSE file for full terms.
 """
 
-import argparse
 import random
 import threading
 import time
+
+import argparse
 import can
 import isotp
 from udsoncan import Request, Response
