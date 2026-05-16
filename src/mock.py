@@ -265,17 +265,17 @@ def _handle_payload(payload, resp_ctx, tx_stack, args):
         return
     for i in range(0xfa13, 0xfa16):
         if payload == resp_ctx['requests'][i].get_payload():
-            print(f"Request received (DID: 0x{i:04X})")
+            print(f"Request received (DID: 0x{i:04X}).")
             if args.pending:
                 tx_stack.send(resp_ctx['pend'].get_payload())
-                print("Reply sent (pending response)")
+                print("Reply sent (pending response).")
                 time.sleep(3)
             if args.negative:
                 tx_stack.send(resp_ctx['nega'].get_payload())
-                print("Reply sent (negative response)")
+                print("Reply sent (negative response).")
             else:
                 tx_stack.send(resp_ctx['pos'][i].get_payload())
-                print("Reply sent (positive response)")
+                print("Reply sent (positive response).")
 
 
 def main():
