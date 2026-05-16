@@ -42,7 +42,14 @@ def get_argparser():
         type=int,
         default=0,
         metavar="N",
-        help="number of background CAN IDs to send at 100ms cycle (0-500, default 0)"
+        help="number of background CAN IDs to send (0-500, default 0)"
+    )
+    parser.add_argument(
+        "-c", "--cycle-time",
+        type=int,
+        default=100,
+        metavar="MS",
+        help="background frame cycle time in milliseconds (1-10000, default 100)"
     )
     parser.add_argument(
         "-i", "--id-type",
@@ -94,8 +101,8 @@ def generate_background_frames(count):
     return frames
 
 
-def background_sender(bus, frames, stop_event):
-    """Send all background CAN frames, repeating every 100ms until stop_event is set."""
+def background_sender(bus, frames, stop_event, cycle_time_s):
+    """Send all background CAN frames, repeating every cycle_time_s seconds until stop_event is set."""
     while not stop_event.is_set():
         cycle_start = time.monotonic()
         for arb_id, is_extended, data in frames:
@@ -107,7 +114,7 @@ def background_sender(bus, frames, stop_event):
             except can.CanError:
                 pass
         elapsed = time.monotonic() - cycle_start
-        remaining = 0.1 - elapsed
+        remaining = cycle_time_s - elapsed
         if remaining > 0:
             stop_event.wait(remaining)
 
@@ -121,6 +128,8 @@ def main():
 
     if not 0 <= args.bg_frames <= 500:
         argparser.error("--bg-frames must be between 0 and 500")
+    if not 1 <= args.cycle_time <= 10000:
+        argparser.error("--cycle-time must be between 1 and 10000")
 
     # Setup and start a CAN bus
     try:
@@ -236,7 +245,7 @@ def main():
         frames = generate_background_frames(args.bg_frames)
         bg_thread = threading.Thread(
             target=background_sender,
-            args=(bus, frames, stop_event),
+            args=(bus, frames, stop_event, args.cycle_time / 1000),
             daemon=True,
         )
         bg_thread.start()
