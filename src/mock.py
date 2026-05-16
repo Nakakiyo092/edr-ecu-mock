@@ -3,6 +3,45 @@
 """
 A Python script to simulate an ECU with EDR data.
 
+This script acts as a UDS (Unified Diagnostic Services) server over CAN bus,
+responding to ReadDataByIdentifier (service 0x22) requests for EDR data records
+(DIDs 0xFA13, 0xFA14, 0xFA15). It uses ISO-TP (ISO 15765-2) as the transport
+layer and supports 11-bit and 29-bit CAN addressing.
+
+Supported CAN interfaces:
+    slcan   Serial-line CAN adapter (e.g., COM9, /dev/ttyACM0), 500 kbit/s
+    vector  Vector CAN interface, channel 0, 500 kbit/s
+    virtual Virtual CAN bus for testing without hardware
+
+Usage:
+    Windows:
+        python .\\src\\mock.py <devicename> [options]
+
+    Linux / macOS:
+        python3 src/mock.py <devicename> [options]
+
+Arguments:
+    devicename              Device name (e.g., COM9, /dev/ttyACM0, virtual, vector)
+
+Options:
+    -h, --help              Show this help message and exit
+    -v, --verbose           Enable verbose output (print all CAN frames)
+    -b N, --bg-frames N     Number of background CAN IDs to send (0-500, default: 0)
+    -i TYPE, --id-type TYPE CAN ID type: 11func, 11phys, or 29bits (default: 29bits)
+    -d TYPE, --data TYPE    Data record values: zeros, step, or random (default: zeros)
+    -p, --pending           Send a pending response before the final response
+    -n, --negative          Send a negative response instead of a positive response
+    -s ADDR, --src-addr ADDR
+                            Override the default source address
+
+Examples:
+    python3 src/mock.py /dev/ttyACM0
+    python3 src/mock.py COM9 --verbose --bg-frames 100 --id-type 11func
+    python3 src/mock.py virtual --data random --pending
+    python3 src/mock.py vector --id-type 29bits --src-addr 0x11
+
+Press [CTRL] + 'c' to quit.
+
 License:
     MIT License.
     See the accompanying LICENSE file for full terms.
