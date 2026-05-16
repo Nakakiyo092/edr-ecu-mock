@@ -19,6 +19,7 @@ from udsoncan import Request, Response
 from udsoncan.services import ReadDataByIdentifier
 
 _BG_FRAMES_RNG_SEED = 42
+_BG_FRAMES_CYCLE_TIME_MS = 100
 
 
 def get_argparser():
@@ -43,13 +44,6 @@ def get_argparser():
         default=0,
         metavar="N",
         help="number of background CAN IDs to send (0-500, default 0)"
-    )
-    parser.add_argument(
-        "-c", "--cycle-time",
-        type=int,
-        default=100,
-        metavar="MS",
-        help="background frame cycle time in milliseconds (1-10000, default 100)"
     )
     parser.add_argument(
         "-i", "--id-type",
@@ -128,8 +122,6 @@ def main():
 
     if not 0 <= args.bg_frames <= 500:
         argparser.error("--bg-frames must be between 0 and 500")
-    if not 1 <= args.cycle_time <= 10000:
-        argparser.error("--cycle-time must be between 1 and 10000")
 
     # Setup and start a CAN bus
     try:
@@ -245,7 +237,7 @@ def main():
         frames = generate_background_frames(args.bg_frames)
         bg_thread = threading.Thread(
             target=background_sender,
-            args=(bus, frames, stop_event, args.cycle_time / 1000),
+            args=(bus, frames, stop_event, _BG_FRAMES_CYCLE_TIME_MS / 1000),
             daemon=True,
         )
         bg_thread.start()
