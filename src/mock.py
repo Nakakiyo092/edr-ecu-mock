@@ -179,7 +179,7 @@ def _create_bus(args):
             )
             print(f"    or 'sudo chmod 666 {args.devicename}'")
         return None
-    except Exception as err:  # pylint: disable=broad-exception-caught
+    except Exception as err:
         print("Could not access CAN network.")
         print("The program is aborting.")
         print(err)
@@ -318,7 +318,7 @@ def main():
         while True:
             payload = rx_stack.recv(block=True, timeout=0.01)
             _handle_payload(payload, resp_ctx, tx_stack, args)
-    except Exception as err:  # pylint: disable=broad-exception-caught
+    except Exception as err:
         print(err)
     finally:
         stop_event.set()
