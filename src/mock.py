@@ -42,6 +42,7 @@ def get_argparser():
         default=0,
         metavar="N",
         help="number of background CAN IDs to send at 100ms cycle (0-500, default 0)"
+    )
     parser.add_argument(
         "-i", "--id-type",
         choices=["11func", "11phys", "29bits"],
@@ -80,12 +81,12 @@ def generate_background_frames(count):
 
     frames = []
     for _ in range(n_std):
-        arb_id = rng.randint(0, 0x7FF)
+        arb_id = rng.randint(0, 0x6FF)
         data = bytes(rng.randint(0, 255) for _ in range(8))
         frames.append((arb_id, False, data))
 
     for _ in range(n_ext):
-        arb_id = rng.randint(0, 0x1FFFFFFF)
+        arb_id = rng.randint(0, 0x17FFFFFF)
         data = bytes(rng.randint(0, 255) for _ in range(8))
         frames.append((arb_id, True, data))
 
