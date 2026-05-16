@@ -10,7 +10,7 @@ The CAN interface will work as an UDS server.
 The script will tell you the usage by the command below:
 
 Windows
-* `python .\src\mock.py --help`
+* `python src\mock.py --help`
 
 Linux or macOS
 * `python3 src/mock.py --help`
