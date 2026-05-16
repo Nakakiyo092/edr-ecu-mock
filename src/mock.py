@@ -15,7 +15,7 @@ Supported CAN interfaces:
 
 Usage:
     Windows:
-        python .\\src\\mock.py <devicename> [options]
+        python .\src\mock.py <devicename> [options]
 
     Linux / macOS:
         python3 src/mock.py <devicename> [options]
