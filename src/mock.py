@@ -174,7 +174,8 @@ def _create_bus(args):
             return can.Bus('test', interface='virtual')
         if args.devicename == "vector":
             return can.Bus(interface='vector', channel=0, bitrate=500000, app_name="Python-CAN")
-        return can.Bus(interface='slcan', channel=args.devicename, bitrate=500000)
+        else:
+            return can.Bus(interface='slcan', channel=args.devicename, bitrate=500000)
     except can.CanInitializationError as err:
         print("Could not access CAN network.")
         print("The program is aborting.")
@@ -185,10 +186,7 @@ def _create_bus(args):
             print( "  - Device not powered: check the device is powered on")
             print( "  - Device not connected: check the device is properly connected")
             print( "  - Wrong firmware: check the device has correct firmware")
-            print(
-                "  - Permission denied (Linux): try 'sudo usermod -aG dialout $USER'"
-                " and re-login"
-            )
+            print( "  - Permission denied (Linux): try 'sudo usermod -aG dialout $USER' and re-login")
             print(f"    or 'sudo chmod 666 {args.devicename}'")
         return None
     except Exception as err:
@@ -312,11 +310,13 @@ def main():
         elif args.id_type == "29bits" and not 0x00 <= args.src_addr <= 0xFF:
             argparser.error(f"--src-addr must be between 0x00 and 0xFF for {args.id_type}")
 
+    # Setup and start a CAN bus
     bus = _create_bus(args)
     if bus is None:
         return
 
     if args.verbose:
+        # Setup a debug listener that print all CAN frames
         notifier = can.Notifier(bus, [can.Printer()])
     else:
         notifier = can.Notifier(bus, [])
