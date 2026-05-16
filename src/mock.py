@@ -109,6 +109,18 @@ def get_argparser():
         action="store_true",
         help="enable negative response instead of positive response"
     )
+    parser.add_argument(
+        "-s", "--src-addr",
+        type=lambda x: int(x, 0),
+        default=None,
+        metavar="ADDR",
+        help=(
+            "set source address."
+            " For 11func: range 0x08-0xFF, default 0xFF)."
+            " For 29bits: range 0x00-0xFF, default 0x77)."
+            " Ignored for 11phys."
+        )
+    )
     return parser
 
 
@@ -189,12 +201,18 @@ def _create_bus(args):
 def _create_isotp_addresses(args):
     """Return (rx_addr, tx_addr) based on the id_type argument."""
     if args.id_type == "11func":
+        src_addr = args.src_addr if args.src_addr is not None else 0xFF
+        txid = 0x700 | src_addr
+        rxid = txid - 8
         rx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x700, rxid=0x7DF)
-        tx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7FF, rxid=0x7F7)
+        tx_addr = isotp.Address(
+            isotp.AddressingMode.Normal_11bits, txid=txid, rxid=rxid
+        )
     elif args.id_type == "11phys":
         rx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7F9, rxid=0x7F1)
         tx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7F9, rxid=0x7F1)
     else:  # 29bits (default)
+        src_addr = args.src_addr if args.src_addr is not None else 0x77
         rx_addr = isotp.Address(
             isotp.AddressingMode.NormalFixed_29bits,
             target_address=0xF1,
@@ -203,7 +221,7 @@ def _create_isotp_addresses(args):
         tx_addr = isotp.Address(
             isotp.AddressingMode.NormalFixed_29bits,
             target_address=0xF1,
-            source_address=0x77,
+            source_address=src_addr,
         )
     return rx_addr, tx_addr
 
@@ -287,6 +305,12 @@ def main():
 
     if not 0 <= args.bg_frames <= 500:
         argparser.error("--bg-frames must be between 0 and 500")
+
+    if args.src_addr is not None:
+        if args.id_type == "11func" and not 0x08 <= args.src_addr <= 0xFF:
+            argparser.error(f"--src-addr must be between 0x08 and 0xFF for {args.id_type}")
+        elif args.id_type == "29bits" and not 0x00 <= args.src_addr <= 0xFF:
+            argparser.error(f"--src-addr must be between 0x00 and 0xFF for {args.id_type}")
 
     bus = _create_bus(args)
     if bus is None:
