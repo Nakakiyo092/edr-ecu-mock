@@ -57,8 +57,8 @@ import isotp
 from udsoncan import Response
 from udsoncan.services import ReadDataByIdentifier
 
-_BG_FRAMES_RNG_SEED = 42
-_BG_FRAMES_CYCLE_TIME_MS = 100
+_BG_FRAMES_RNG_SEED = 42          # Arbitrary fixed seed; keeps frame content reproducible across runs.
+_BG_FRAMES_CYCLE_TIME_MS = 100    # One full set of background frames is repeated every 100 ms.
 
 _ISOTP_PARAMS = {
     # Will request the sender to wait 0ms between consecutive frame.
@@ -171,18 +171,21 @@ def generate_background_frames(count):
     """
     rng = random.Random(_BG_FRAMES_RNG_SEED)
 
+    # Split evenly: half standard (11-bit), half extended (29-bit) IDs.
     n_std = count // 2
     n_ext = count - n_std
 
     frames = []
     for _ in range(n_std):
+        # Stay below 0x700 to avoid the UDS/diagnostic 11-bit range (0x700–0x7FF).
         arb_id = rng.randint(0, 0x6FF)
-        data = bytes(rng.randint(0, 255) for _ in range(8))
+        data = bytes(rng.randint(0, 255) for _ in range(8))  # 8-byte payload (CAN 2.0 max).
         frames.append((arb_id, False, data))
 
     for _ in range(n_ext):
+        # Stay below 0x18000000 to avoid the ISO 15765-4 NormalFixed 29-bit diagnostic range.
         arb_id = rng.randint(0, 0x17FFFFFF)
-        data = bytes(rng.randint(0, 255) for _ in range(8))
+        data = bytes(rng.randint(0, 255) for _ in range(8))  # 8-byte payload (CAN 2.0 max).
         frames.append((arb_id, True, data))
 
     return frames
@@ -212,6 +215,8 @@ def _create_bus(args):
         if args.devicename == "virtual":
             return can.Bus('test', interface='virtual')
         if args.devicename == "vector":
+            # channel=0: first CAN channel of the Vector adapter.
+            # bitrate=500000: 500 kbit/s is the standard automotive CAN bus speed.
             return can.Bus(interface='vector', channel=0, bitrate=500000, app_name="Python-CAN")
         else:
             return can.Bus(interface='slcan', channel=args.devicename, bitrate=500000)
@@ -238,26 +243,35 @@ def _create_bus(args):
 def _create_isotp_addresses(args):
     """Return (rx_addr, tx_addr) based on the id_type argument."""
     if args.id_type == "11func":
+        # Default 0xFF gives txid=0x7FF, leaving 0x700–0x7FE available for other ECU addresses.
         src_addr = args.src_addr if args.src_addr is not None else 0xFF
-        txid = 0x700 | src_addr
-        rxid = txid - 8
+        txid = 0x700 | src_addr   # ECU physical response CAN ID.
+        rxid = txid - 8           # Tester physical request CAN ID (fixed offset convention).
+        # rx_addr listens for functional (broadcast) requests on 0x7DF,
+        # the standard OBD-II/UDS 11-bit broadcast CAN ID.
         rx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x700, rxid=0x7DF)
         tx_addr = isotp.Address(
             isotp.AddressingMode.Normal_11bits, txid=txid, rxid=rxid
         )
     elif args.id_type == "11phys":
+        # Fixed physical addresses: 0x7F9 = ECU response ID, 0x7F1 = tester request ID.
+        # Both stacks share the same address pair (physical-only, no functional channel).
         rx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7F9, rxid=0x7F1)
         tx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7F9, rxid=0x7F1)
     else:  # 29bits (default)
+        # Default 0x77 is a common ECU address in ISO 15765-4 NormalFixed 29-bit mode.
         src_addr = args.src_addr if args.src_addr is not None else 0x77
+        # rx_addr listens for functional requests: source_address=0xFF is the
+        # functional broadcast source; target_address=0xF1 is the standard tester address.
         rx_addr = isotp.Address(
             isotp.AddressingMode.NormalFixed_29bits,
-            target_address=0xF1,
-            source_address=0xFF,
+            target_address=0xF1,   # 0xF1 = standard tester address (ISO 14229).
+            source_address=0xFF,   # 0xFF = functional broadcast source address.
         )
+        # tx_addr sends responses from the ECU's own address back to the tester.
         tx_addr = isotp.Address(
             isotp.AddressingMode.NormalFixed_29bits,
-            target_address=0xF1,
+            target_address=0xF1,   # 0xF1 = standard tester address (ISO 14229).
             source_address=src_addr,
         )
     return rx_addr, tx_addr
@@ -265,20 +279,26 @@ def _create_isotp_addresses(args):
 
 def _create_responses(args):
     """Return a response context dict for DID handling."""
-    rng = random.Random(42)
+    rng = random.Random(42)  # Fixed seed for reproducible random data content.
     data_records = {}
+    # DIDs 0xFA13, 0xFA14, 0xFA15 are the three EDR data record identifiers.
     for i in range(0xfa13, 0xfa16):
         if args.data == "zeros":
-            data_records[i] = bytes(772)
+            data_records[i] = bytes(772)       # 772 bytes is the size of one EDR data record.
         elif args.data == "step":
+            # Incrementing byte values 0x00–0xFF, wrapping back to 0x00 after 0xFF.
             data_records[i] = b''.join(bytes([j % 256]) for j in range(772))
         else:  # random
             data_records[i] = bytes(rng.getrandbits(8) for _ in range(772))
 
+    # Pre-build expected request payloads for each DID so _handle_payload can compare
+    # incoming bytes directly without re-constructing the request on every message.
+    # 'default': 's' tells udsoncan to treat DID data as opaque raw bytes.
     requests = {}
     responses = {}
     for i in range(0xfa13, 0xfa16):
         requests[i] = ReadDataByIdentifier.make_request(didlist=[i], didconfig={'default': 's'})
+        # UDS positive response data: 2-byte DID in big-endian order followed by record bytes.
         did_bytes = bytes([(i >> 8) & 0xFF, i & 0xFF])
         responses[i] = Response(
             service=ReadDataByIdentifier,
@@ -324,7 +344,7 @@ def _handle_payload(payload, resp_ctx, tx_stack, args):
             if args.pending:
                 tx_stack.send(resp_ctx['pend'].get_payload())
                 print("Reply sent (pending response).")
-                time.sleep(3)
+                time.sleep(3)  # Simulate a 3-second processing delay before the final response.
             if args.negative:
                 tx_stack.send(resp_ctx['nega'].get_payload())
                 print("Reply sent (negative response).")
@@ -362,6 +382,10 @@ def main():
 
     rx_addr, tx_addr = _create_isotp_addresses(args)
 
+    # Two separate ISO-TP stacks: rx_stack handles incoming tester requests
+    # (functional/broadcast address), tx_stack sends ECU responses on the ECU's
+    # physical address. Splitting them allows different source/target IDs for
+    # receive and transmit without interference.
     rx_stack = isotp.NotifierBasedCanStack(
         bus=bus, notifier=notifier, address=rx_addr, params=_ISOTP_PARAMS
     )
@@ -379,6 +403,7 @@ def main():
 
     try:
         while True:
+            # timeout=0.01 keeps the loop responsive to Ctrl+C without busy-waiting.
             payload = rx_stack.recv(block=True, timeout=0.01)
             _handle_payload(payload, resp_ctx, tx_stack, args)
     except Exception as err:
