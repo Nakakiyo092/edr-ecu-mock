@@ -202,9 +202,11 @@ def _create_isotp_addresses(args):
     """Return (rx_addr, tx_addr) based on the id_type argument."""
     if args.id_type == "11func":
         src_addr = args.src_addr if args.src_addr is not None else 0xFF
+        txid = 0x700 | src_addr
+        rxid = txid - 8
         rx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x700, rxid=0x7DF)
         tx_addr = isotp.Address(
-            isotp.AddressingMode.Normal_11bits, txid=0x700 | src_addr, rxid=0x7F7
+            isotp.AddressingMode.Normal_11bits, txid=txid, rxid=rxid
         )
     elif args.id_type == "11phys":
         rx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7F9, rxid=0x7F1)
@@ -306,6 +308,14 @@ def main():
 
     if args.src_addr is not None and not 0 <= args.src_addr <= 0xFF:
         argparser.error("--src-addr must be between 0x00 and 0xFF")
+
+    if args.id_type == "11func" and args.src_addr is not None:
+        txid = 0x700 | args.src_addr
+        if txid - 8 < 0:
+            argparser.error(
+                f"--src-addr 0x{args.src_addr:02X} results in an invalid rxid"
+                f" (txid 0x{txid:03X} - 8 = {txid - 8}) for 11func mode"
+            )
 
     bus = _create_bus(args)
     if bus is None:
