@@ -115,9 +115,9 @@ def get_argparser():
         default=None,
         metavar="ADDR",
         help=(
-            "source address (0x00-0xFF)."
-            " For 11func: sets txid (default 0xFF)."
-            " For 29bits: sets source_address (default 0x77)."
+            "set source address."
+            " For 11func: range 0x08-0xFF, default 0xFF)."
+            " For 29bits: range 0x00-0xFF, default 0x77)."
             " Ignored for 11phys."
         )
     )
@@ -306,16 +306,11 @@ def main():
     if not 0 <= args.bg_frames <= 500:
         argparser.error("--bg-frames must be between 0 and 500")
 
-    if args.src_addr is not None and not 0 <= args.src_addr <= 0xFF:
-        argparser.error("--src-addr must be between 0x00 and 0xFF")
-
-    if args.id_type == "11func" and args.src_addr is not None:
-        txid = 0x700 | args.src_addr
-        if txid - 8 < 0:
-            argparser.error(
-                f"--src-addr 0x{args.src_addr:02X} results in an invalid rxid"
-                f" (txid 0x{txid:03X} - 8 = {txid - 8}) for 11func mode"
-            )
+    if args.src_addr is not None:
+        if args.id_type == "11func" and not 0x08 <= args.src_addr <= 0xFF:
+            argparser.error(f"--src-addr must be between 0x08 and 0xFF for {args.id_type}")
+        elif args.id_type == "29bits" and not 0x00 <= args.src_addr <= 0xFF:
+            argparser.error(f"--src-addr must be between 0x00 and 0xFF for {args.id_type}")
 
     bus = _create_bus(args)
     if bus is None:
