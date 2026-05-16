@@ -348,6 +348,7 @@ def main():
         stop_event.set()
         rx_stack.stop()
         tx_stack.stop()
+        notifier.stop()
         bus.shutdown()
 
 
