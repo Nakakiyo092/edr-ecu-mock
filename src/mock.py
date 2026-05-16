@@ -14,8 +14,8 @@ Supported CAN interfaces:
     virtual Virtual CAN bus for testing without hardware
 
 Usage:
-    Windows:
-        python src\mock.py <devicename> [options]
+    Windows (PowerShell):
+        python src/mock.py <devicename> [options]
 
     Linux / macOS:
         python3 src/mock.py <devicename> [options]
