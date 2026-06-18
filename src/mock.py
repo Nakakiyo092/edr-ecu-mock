@@ -253,11 +253,6 @@ def _create_isotp_addresses(args):
         tx_addr = isotp.Address(
             isotp.AddressingMode.Normal_11bits, txid=txid, rxid=rxid
         )
-    elif args.id_type == "11phys":
-        # Fixed physical addresses: 0x7F9 = ECU response ID, 0x7F1 = tester request ID.
-        # Both stacks share the same address pair (physical-only, no functional channel).
-        rx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7F9, rxid=0x7F1)
-        tx_addr = isotp.Address(isotp.AddressingMode.Normal_11bits, txid=0x7F9, rxid=0x7F1)
     else:  # 29bits (default)
         # Default 0x77 is a common ECU address in ISO 15765-4 NormalFixed 29-bit mode.
         src_addr = args.src_addr if args.src_addr is not None else 0x77
@@ -275,6 +270,16 @@ def _create_isotp_addresses(args):
             source_address=src_addr,
         )
     return rx_addr, tx_addr
+
+
+def _build_phys_stack(bus, notifier, params):
+    """Build a single ISO-TP stack for 11-bit physical (1-to-1 symmetric) addressing."""
+    addr = isotp.Address(
+        isotp.AddressingMode.Normal_11bits, txid=0x7F9, rxid=0x7F1
+    )
+    return isotp.NotifierBasedCanStack(
+        bus=bus, notifier=notifier, address=addr, params=params
+    )
 
 
 def _create_responses(args):
@@ -380,23 +385,27 @@ def main():
     else:
         notifier = can.Notifier(bus, [])
 
-    rx_addr, tx_addr = _create_isotp_addresses(args)
-
-    # Two separate ISO-TP stacks: rx_stack handles incoming tester requests
-    # (functional/broadcast address), tx_stack sends ECU responses on the ECU's
-    # physical address. Splitting them allows different source/target IDs for
-    # receive and transmit without interference.
-    rx_stack = isotp.NotifierBasedCanStack(
-        bus=bus, notifier=notifier, address=rx_addr, params=_ISOTP_PARAMS
-    )
-    tx_stack = isotp.NotifierBasedCanStack(
-        bus=bus, notifier=notifier, address=tx_addr, params=_ISOTP_PARAMS
-    )
+    if args.id_type == "11phys":
+        # 11-bit physical is symmetric 1-to-1; a single Address/stack represents
+        # both directions. Two stacks would only duplicate per-frame dispatch and
+        # leak frames into the unused tx_stack.rx_queue.
+        rx_stack = tx_stack = _build_phys_stack(bus, notifier, _ISOTP_PARAMS)
+    else:
+        # 11func / 29bits: functional-receive vs physical-respond asymmetry
+        # requires two stacks with different Address objects.
+        rx_addr, tx_addr = _create_isotp_addresses(args)
+        rx_stack = isotp.NotifierBasedCanStack(
+            bus=bus, notifier=notifier, address=rx_addr, params=_ISOTP_PARAMS
+        )
+        tx_stack = isotp.NotifierBasedCanStack(
+            bus=bus, notifier=notifier, address=tx_addr, params=_ISOTP_PARAMS
+        )
 
     resp_ctx = _create_responses(args)
 
     rx_stack.start()
-    tx_stack.start()
+    if tx_stack is not rx_stack:
+        tx_stack.start()
 
     stop_event = threading.Event()
     _start_background_sender(bus, args, stop_event)
@@ -411,7 +420,8 @@ def main():
     finally:
         stop_event.set()
         rx_stack.stop()
-        tx_stack.stop()
+        if tx_stack is not rx_stack:
+            tx_stack.stop()
         notifier.stop()
         bus.shutdown()
 
