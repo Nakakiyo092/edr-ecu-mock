@@ -99,6 +99,11 @@ _ISOTP_PARAMS = {
     'listen_mode': False,
 }
 
+# Receive-only variant for the functional-receive stack in 11func / 29bits modes.
+# listen_mode=True surfaces accidental send() as a RuntimeError and prevents the
+# stack from auto-emitting a Flow Control frame on the functional/broadcast ID.
+_LISTEN_PARAMS = {**_ISOTP_PARAMS, 'listen_mode': True}
+
 
 def get_argparser():
     """Get the command line argument parser."""
@@ -395,7 +400,7 @@ def main():
         # requires two stacks with different Address objects.
         rx_addr, tx_addr = _create_isotp_addresses(args)
         rx_stack = isotp.NotifierBasedCanStack(
-            bus=bus, notifier=notifier, address=rx_addr, params=_ISOTP_PARAMS
+            bus=bus, notifier=notifier, address=rx_addr, params=_LISTEN_PARAMS
         )
         tx_stack = isotp.NotifierBasedCanStack(
             bus=bus, notifier=notifier, address=tx_addr, params=_ISOTP_PARAMS
