@@ -105,7 +105,7 @@ _ISOTP_PARAMS = {
 _LISTEN_PARAMS = {**_ISOTP_PARAMS, 'listen_mode': True}
 
 
-def get_argparser():
+def _get_argparser():
     """Get the command line argument parser."""
 
     parser = argparse.ArgumentParser(
@@ -168,7 +168,7 @@ def get_argparser():
     return parser
 
 
-def generate_background_frames(count):
+def _generate_background_frames(count):
     """Return a list of (arbitration_id, is_extended_id, data) for background frames.
 
     Half of the IDs are standard 11-bit, the other half extended 29-bit.
@@ -196,7 +196,7 @@ def generate_background_frames(count):
     return frames
 
 
-def background_sender(bus, frames, stop_event, cycle_time_s):
+def _background_sender(bus, frames, stop_event, cycle_time_s):
     """Send background CAN frames repeatedly every cycle_time_s seconds."""
     while not stop_event.is_set():
         cycle_start = time.monotonic()
@@ -335,9 +335,9 @@ def _start_background_sender(bus, args, stop_event):
     """Start background sender daemon thread if bg_frames > 0."""
     if args.bg_frames <= 0:
         return
-    frames = generate_background_frames(args.bg_frames)
+    frames = _generate_background_frames(args.bg_frames)
     thread = threading.Thread(
-        target=background_sender,
+        target=_background_sender,
         args=(bus, frames, stop_event, _BG_FRAMES_CYCLE_TIME_MS / 1000),
         daemon=True,
     )
@@ -367,7 +367,7 @@ def main():
     """Main process."""
 
     # Parse command line arguments
-    argparser = get_argparser()
+    argparser = _get_argparser()
     args = argparser.parse_args()
 
     if not 0 <= args.bg_frames <= 500:
