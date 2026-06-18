@@ -88,12 +88,16 @@ _ISOTP_PARAMS = {
     'can_fd': False,
     # Does not set the bitrate_switch flag on the output CAN messages.
     'bitrate_switch': False,
-    # Disable the rate limiter.
-    'rate_limit_enable': False,
-    # Ignored when rate_limit_enable=False. Sets the max bitrate when rate_limit_enable=True.
-    'rate_limit_max_bitrate': 1000000,
-    # Ignored when rate_limit_enable=False.
-    # Sets the averaging window size for bitrate calculation when rate_limit_enable=True.
+    # Throttle IsoTP TX to stay within slcan UART capacity. Without this, the
+    # multi-frame response burst (~111 CFs for a 772-byte EDR record) exceeds the
+    # adapter's serial throughput, trips pyserial's 1 s write_timeout and kills the
+    # TX thread mid-response.
+    'rate_limit_enable': True,
+    # Target CAN-layer rate in bps. 50 kbps stays under the slcan ASCII overhead cap
+    # (~500 std frames/s * ~108 bits ~= 54 kbps including framing) and still
+    # completes one 772-byte EDR response in ~240 ms.
+    'rate_limit_max_bitrate': 50000,
+    # Averaging window for the rate limiter (seconds).
     'rate_limit_window_size': 0.2,
     # Does not use the listen_mode which prevent transmission.
     'listen_mode': False,
