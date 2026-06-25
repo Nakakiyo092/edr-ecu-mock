@@ -8,11 +8,6 @@ responding to ReadDataByIdentifier (service 0x22) requests for EDR data records
 (DIDs 0xFA13, 0xFA14, 0xFA15). It uses ISO-TP (ISO 15765-2) as the transport
 layer and supports 11-bit and 29-bit CAN addressing.
 
-Supported CAN interfaces:
-    slcan   Serial-line CAN adapter (e.g., COM9, /dev/ttyACM0), 500 kbit/s
-    vector  Vector CAN interface, channel 0, 500 kbit/s
-    virtual Virtual CAN bus for testing without hardware
-
 Usage:
     Windows (PowerShell):
         python src/mock.py <devicename> [options]
@@ -36,10 +31,8 @@ Options:
                             (0x-prefixed for hex, else decimal; default 0x77)
 
 Examples:
-    python3 src/mock.py /dev/ttyACM0
-    python3 src/mock.py COM9 --verbose --bg-frames 100 --id-type 11func
-    python3 src/mock.py virtual --data random --pending
-    python3 src/mock.py vector --id-type 29func --ecu-addr 0x11
+    python src/mock.py COM9
+    python3 src/mock.py /dev/ttyACM0 --verbose --bg-frames 1
 
 Press [CTRL] + 'c' to quit.
 
