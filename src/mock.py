@@ -27,19 +27,19 @@ Options:
     -h, --help              Show this help message and exit
     -v, --verbose           Enable verbose output (print all CAN frames)
     -b N, --bg-frames N     Number of background CAN IDs to send (0-500, default: 0)
-    -i TYPE, --id-type TYPE CAN ID type: 11func, 11phys, or 29bits (default: 29bits)
+    -i TYPE, --id-type TYPE CAN ID type: 11func, 11phys, or 29func (default: 29func)
     -d TYPE, --data TYPE    Data record values: zeros, step, or random (default: zeros)
     -p, --pending           Send a pending response before the final response
     -n, --negative          Send a negative response instead of a positive response
     -a ADDR, --ecu-addr ADDR
                             ECU physical address this mock answers on
-                            (0x77 hex or 119 dec; default 0x77)
+                            (0x-prefixed for hex, else decimal; default 0x77)
 
 Examples:
     python3 src/mock.py /dev/ttyACM0
     python3 src/mock.py COM9 --verbose --bg-frames 100 --id-type 11func
     python3 src/mock.py virtual --data random --pending
-    python3 src/mock.py vector --id-type 29bits --ecu-addr 0x11
+    python3 src/mock.py vector --id-type 29func --ecu-addr 0x11
 
 Press [CTRL] + 'c' to quit.
 
@@ -101,7 +101,7 @@ _ISOTP_PARAMS = {
     'listen_mode': False,
 }
 
-# Receive-only variant for the functional-receive stack in 11func / 29bits modes.
+# Receive-only variant for the functional-receive stack in 11func / 29func modes.
 # listen_mode=True surfaces accidental send() as a RuntimeError and prevents the
 # stack from auto-emitting a Flow Control frame on the functional/broadcast ID.
 _LISTEN_PARAMS = {**_ISOTP_PARAMS, 'listen_mode': True}
@@ -132,11 +132,11 @@ def _get_argparser():
     )
     parser.add_argument(
         "-i", "--id-type",
-        choices=["11func", "11phys", "29bits"],
-        default="29bits",
+        choices=["11func", "11phys", "29func"],
+        default="29func",
         help=(
             "CAN ID type: 11bits functional (11func), 11bits physical (11phys),"
-            " or 29bits (default: 29bits)"
+            " or 29func (default: 29func)"
         )
     )
     parser.add_argument(
@@ -161,8 +161,9 @@ def _get_argparser():
         default=None,
         metavar="ADDR",
         help=(
-            "ECU physical address this mock answers on (0x77 hex or 119 dec)."
-            " For 11func: range 0x08-0xFF. For 29bits: range 0x00-0xFF."
+            "ECU physical address this mock answers on (0x-prefixed for hex,"
+            " else decimal; ex. 0x77)."
+            " For 11func: range 0x08-0xFF. For 29func: range 0x00-0xFF."
             f" Default 0x{_DEFAULT_ECU_ADDR:02X}. Ignored for 11phys."
         )
     )
@@ -258,7 +259,7 @@ def _create_isotp_addresses(args):
         tx_addr = isotp.Address(
             isotp.AddressingMode.Normal_11bits, txid=txid, rxid=rxid
         )
-    else:  # 29bits (default)
+    else:  # 29func (default)
         # rx_addr listens for functional requests: source_address=0xFF is the
         # functional broadcast source; target_address=0xF1 is the standard tester address.
         rx_addr = isotp.Address(
@@ -374,7 +375,7 @@ def main():
     if args.ecu_addr is not None:
         if args.id_type == "11func" and not 0x08 <= args.ecu_addr <= 0xFF:
             argparser.error(f"--ecu-addr must be between 0x08 and 0xFF for {args.id_type}")
-        elif args.id_type == "29bits" and not 0x00 <= args.ecu_addr <= 0xFF:
+        elif args.id_type == "29func" and not 0x00 <= args.ecu_addr <= 0xFF:
             argparser.error(f"--ecu-addr must be between 0x00 and 0xFF for {args.id_type}")
 
     # Setup and start a CAN bus
@@ -394,7 +395,7 @@ def main():
         # leak frames into the unused tx_stack.rx_queue.
         rx_stack = tx_stack = _build_phys_stack(bus, notifier, _ISOTP_PARAMS)
     else:
-        # 11func / 29bits: functional-receive vs physical-respond asymmetry
+        # 11func / 29func: functional-receive vs physical-respond asymmetry
         # requires two stacks with different Address objects.
         rx_addr, tx_addr = _create_isotp_addresses(args)
         rx_stack = isotp.NotifierBasedCanStack(
