@@ -31,14 +31,15 @@ Options:
     -d TYPE, --data TYPE    Data record values: zeros, step, or random (default: zeros)
     -p, --pending           Send a pending response before the final response
     -n, --negative          Send a negative response instead of a positive response
-    -s ADDR, --src-addr ADDR
-                            Override the default source address
+    -a ADDR, --ecu-addr ADDR
+                            ECU physical address this mock answers on
+                            (0x77 hex or 119 dec; default 0x77)
 
 Examples:
     python3 src/mock.py /dev/ttyACM0
     python3 src/mock.py COM9 --verbose --bg-frames 100 --id-type 11func
     python3 src/mock.py virtual --data random --pending
-    python3 src/mock.py vector --id-type 29bits --src-addr 0x11
+    python3 src/mock.py vector --id-type 29bits --ecu-addr 0x11
 
 Press [CTRL] + 'c' to quit.
 
@@ -59,6 +60,7 @@ from udsoncan.services import ReadDataByIdentifier
 
 _BG_FRAMES_RNG_SEED = 42          # Arbitrary fixed seed; keeps frame content reproducible across runs.
 _BG_FRAMES_CYCLE_TIME_MS = 100    # One full set of background frames is repeated every 100 ms.
+_DEFAULT_ECU_ADDR = 0x77          # ECU physical address used when --ecu-addr is omitted (all schemes).
 
 _ISOTP_PARAMS = {
     # Will request the sender to wait 0ms between consecutive frame.
@@ -154,15 +156,14 @@ def _get_argparser():
         help="enable negative response instead of positive response"
     )
     parser.add_argument(
-        "-s", "--src-addr",
+        "-a", "--ecu-addr",
         type=lambda x: int(x, 0),
         default=None,
         metavar="ADDR",
         help=(
-            "set source address."
-            " For 11func: range 0x08-0xFF, default 0xFF)."
-            " For 29bits: range 0x00-0xFF, default 0x77)."
-            " Ignored for 11phys."
+            "ECU physical address this mock answers on (0x77 hex or 119 dec)."
+            " For 11func: range 0x08-0xFF. For 29bits: range 0x00-0xFF."
+            f" Default 0x{_DEFAULT_ECU_ADDR:02X}. Ignored for 11phys."
         )
     )
     return parser
@@ -247,10 +248,9 @@ def _create_bus(args):
 
 def _create_isotp_addresses(args):
     """Return (rx_addr, tx_addr) based on the id_type argument."""
+    ecu_addr = args.ecu_addr if args.ecu_addr is not None else _DEFAULT_ECU_ADDR
     if args.id_type == "11func":
-        # Default 0xFF gives txid=0x7FF, leaving 0x700–0x7FE available for other ECU addresses.
-        src_addr = args.src_addr if args.src_addr is not None else 0xFF
-        txid = 0x700 | src_addr   # ECU physical response CAN ID.
+        txid = 0x700 | ecu_addr   # ECU physical response CAN ID.
         rxid = txid - 8           # Tester physical request CAN ID (fixed offset convention).
         # rx_addr listens for functional (broadcast) requests on 0x7DF,
         # the standard OBD-II/UDS 11-bit broadcast CAN ID.
@@ -259,8 +259,6 @@ def _create_isotp_addresses(args):
             isotp.AddressingMode.Normal_11bits, txid=txid, rxid=rxid
         )
     else:  # 29bits (default)
-        # Default 0x77 is a common ECU address in ISO 15765-4 NormalFixed 29-bit mode.
-        src_addr = args.src_addr if args.src_addr is not None else 0x77
         # rx_addr listens for functional requests: source_address=0xFF is the
         # functional broadcast source; target_address=0xF1 is the standard tester address.
         rx_addr = isotp.Address(
@@ -272,7 +270,7 @@ def _create_isotp_addresses(args):
         tx_addr = isotp.Address(
             isotp.AddressingMode.NormalFixed_29bits,
             target_address=0xF1,   # 0xF1 = standard tester address (ISO 14229).
-            source_address=src_addr,
+            source_address=ecu_addr,
         )
     return rx_addr, tx_addr
 
@@ -373,11 +371,11 @@ def main():
     if not 0 <= args.bg_frames <= 500:
         argparser.error("--bg-frames must be between 0 and 500")
 
-    if args.src_addr is not None:
-        if args.id_type == "11func" and not 0x08 <= args.src_addr <= 0xFF:
-            argparser.error(f"--src-addr must be between 0x08 and 0xFF for {args.id_type}")
-        elif args.id_type == "29bits" and not 0x00 <= args.src_addr <= 0xFF:
-            argparser.error(f"--src-addr must be between 0x00 and 0xFF for {args.id_type}")
+    if args.ecu_addr is not None:
+        if args.id_type == "11func" and not 0x08 <= args.ecu_addr <= 0xFF:
+            argparser.error(f"--ecu-addr must be between 0x08 and 0xFF for {args.id_type}")
+        elif args.id_type == "29bits" and not 0x00 <= args.ecu_addr <= 0xFF:
+            argparser.error(f"--ecu-addr must be between 0x00 and 0xFF for {args.id_type}")
 
     # Setup and start a CAN bus
     bus = _create_bus(args)
